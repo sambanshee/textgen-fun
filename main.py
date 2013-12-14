@@ -1,11 +1,15 @@
 #!/usr/bin/env python2.7
 import os
+import sys
 import shutil
+import string
 import argparse
 import nltk
 from nltk.probability import LidstoneProbDist
 import uuid
 import random
+import re
+import charade
 
 def open_dir(path='.'):
   path = os.path.abspath(path)
@@ -37,16 +41,33 @@ if __name__ == '__main__':
   try:
     files = open_dir(args.dir)
     result = read_files(files)
+    #print p.decode('your-system-encoding')
+    enc = charade.detect(result)
+    syscodepage =  sys.stdout.encoding
+    chars = re.escape(string.punctuation)
+    new_result = re.sub(r'[' + chars + ']', ' ', result.decode(enc['encoding']))
   except:
     raise
 
-  tokens = nltk.word_tokenize(result)
-  estimator = lambda fdist, bins: LidstoneProbDist(fdist, 0.2)  
-  f = open(str(uuid.uuid1()), "w")
+  tokens = nltk.word_tokenize(new_result.lower())
+  estimator = lambda fdist, bins: LidstoneProbDist(fdist, 0.2)
+    
+  f = open(str(uuid.uuid1()) + ".txt", "w")
   
   for i in range(args.tries):  
     content_model = nltk.NgramModel(args.ply, tokens, estimator=estimator)
-    starting_words = content_model.generate(args.words)[-2:] 
+    #l = len(content_model.generate(args.words*10))
+    #random.seed()
+    #rnd = random.randint(args.start, l - args.start)
+    starting_words = content_model.generate(args.words*10)[-2:]
+    try:
+      print "Starting words:\t%s" % (" ".join(word.encode(syscodepage, "ignore") for word in starting_words))
+    except:
+      pass
     content = content_model.generate(args.words, starting_words)
-    f.write(" ".join(word for word in content) + "\n")
-  f.close()  
+    try:
+      f.write(" ".join(word.encode("utf8") for word in content) + "\n")
+    except Exception as e:
+      f.close()
+      print "Cannot write to file! Exception: %s" % e
+  f.close()
